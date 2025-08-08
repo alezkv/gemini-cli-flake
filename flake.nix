@@ -1,0 +1,78 @@
+{
+  description = "Gemini CLI package";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  };
+
+  outputs = { self, nixpkgs }:
+    let
+      systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      forAllSystems = nixpkgs.lib.genAttrs systems;
+    in
+    {
+      packages = forAllSystems (system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
+        {
+          default = self.packages.${system}.gemini;
+
+          gemini = pkgs.buildNpmPackage rec {
+            pname = "gemini-cli";
+            version = "0.1.18";
+
+            src = pkgs.fetchFromGitHub {
+              owner = "google-gemini";
+              repo = "gemini-cli";
+              tag = "v${version}";
+              hash = "sha256-vO70olSAG6NaZjyERU22lc8MbVivyJFieGcy0xOErrc=";
+            };
+
+            npmDepsHash = "sha256-9GoG2sALdvYhQJuioPfgrFtg0BJri2eR4pYY087wQVM=";
+            patches = [
+                ./package-lock.json.patch
+            ];
+
+            preConfigure = ''
+              mkdir -p packages/generated
+              echo "export const GIT_COMMIT_INFO = { commitHash: 'v${version}' };" > packages/generated/git-commit.ts
+            '';
+
+            installPhase = ''
+              runHook preInstall
+              mkdir -p $out/{bin,share/gemini-cli}
+
+              cp -r node_modules $out/share/gemini-cli/
+
+              rm -f $out/share/gemini-cli/node_modules/@google/gemini-cli
+              rm -f $out/share/gemini-cli/node_modules/@google/gemini-cli-core
+              rm -f $out/share/gemini-cli/node_modules/@google/gemini-cli-test-utils
+
+              rm -f $out/share/gemini-cli/node_modules/gemini-cli-vscode-ide-companion
+
+              cp -r packages/cli $out/share/gemini-cli/node_modules/@google/gemini-cli
+              cp -r packages/core $out/share/gemini-cli/node_modules/@google/gemini-cli-core
+              cp -r packages/test-utils $out/share/gemini-cli/node_modules/@google/gemini-cli-core-test-utils
+
+              ln -s $out/share/gemini-cli/node_modules/@google/gemini-cli/dist/index.js $out/bin/gemini
+              runHook postInstall
+            '';
+
+            postInstall = ''
+              chmod +x "$out/bin/gemini"
+            '';
+
+            passthru.updateScript = pkgs.gitUpdater { };
+
+            meta = with pkgs.lib; {
+              description = "An open-source AI agent that brings the power of Gemini directly into your terminal";
+              homepage = "https://github.com/google-gemini/gemini-cli";
+              license = licenses.asl20;
+              platforms = platforms.all;
+              mainProgram = "gemini";
+            };
+          };
+        });
+    };
+}
