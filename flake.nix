@@ -16,9 +16,9 @@
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
-          default = self.packages.${system}.gemini;
+          default = self.packages.${system}.gemini-cli;
 
-          gemini = pkgs.buildNpmPackage rec {
+          gemini-cli = pkgs.buildNpmPackage rec {
             pname = "gemini-cli";
             version = "0.1.18";
 
