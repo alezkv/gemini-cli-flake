@@ -18,25 +18,26 @@
         {
           default = self.packages.${system}.gemini-cli;
 
-          gemini-cli = pkgs.buildNpmPackage rec {
+          gemini-cli = pkgs.buildNpmPackage (finalAttrs: {
             pname = "gemini-cli";
-            version = "0.1.22";
+            version = "0.2.2";
 
             src = pkgs.fetchFromGitHub {
               owner = "google-gemini";
               repo = "gemini-cli";
-              tag = "v${version}";
-              hash = "sha256-taQyrthHrlHc6Zy8947bpxvbHeSq0+JbgxROtQOGq44=";
+              tag = "v${finalAttrs.version}";
+              hash = "sha256-ykNgtHtH+PPCycRn9j1lc8UIEHqYj54l0MTeVz6OhsQ=";
             };
 
-            npmDepsHash = "sha256-5vF4ojal3RFv9qbRW9mvX8NaRzajiXNCDC3ZvmS2eAw=";
             patches = [
-                ./package-lock.json.patch
+              ./restore-missing-dependencies-fields.patch
             ];
+
+            npmDepsHash = "sha256-gpNt581BHDA12s+3nm95UOYHjoa7Nfe46vgPwFr7ZOU=";
 
             preConfigure = ''
               mkdir -p packages/generated
-              echo "export const GIT_COMMIT_INFO = { commitHash: 'v${version}' };" > packages/generated/git-commit.ts
+              echo "export const GIT_COMMIT_INFO = { commitHash: '${finalAttrs.src.rev}' };" > packages/generated/git-commit.ts
             '';
 
             installPhase = ''
@@ -48,12 +49,9 @@
               rm -f $out/share/gemini-cli/node_modules/@google/gemini-cli
               rm -f $out/share/gemini-cli/node_modules/@google/gemini-cli-core
               rm -f $out/share/gemini-cli/node_modules/@google/gemini-cli-test-utils
-
               rm -f $out/share/gemini-cli/node_modules/gemini-cli-vscode-ide-companion
-
               cp -r packages/cli $out/share/gemini-cli/node_modules/@google/gemini-cli
               cp -r packages/core $out/share/gemini-cli/node_modules/@google/gemini-cli-core
-              cp -r packages/test-utils $out/share/gemini-cli/node_modules/@google/gemini-cli-core-test-utils
 
               ln -s $out/share/gemini-cli/node_modules/@google/gemini-cli/dist/index.js $out/bin/gemini
               runHook postInstall
@@ -63,16 +61,19 @@
               chmod +x "$out/bin/gemini"
             '';
 
-            passthru.updateScript = pkgs.gitUpdater { };
+            passthru.updateScript = pkgs.nix-update-script { };
 
-            meta = with pkgs.lib; {
-              description = "An open-source AI agent that brings the power of Gemini directly into your terminal";
+            meta = {
+              description = "AI agent that brings the power of Gemini directly into your terminal";
               homepage = "https://github.com/google-gemini/gemini-cli";
-              license = licenses.asl20;
-              platforms = platforms.all;
+              license = pkgs.lib.licenses.asl20;
+              maintainers = with pkgs.lib.maintainers; [
+                # Add maintainers here if needed
+              ];
+              platforms = pkgs.lib.platforms.all;
               mainProgram = "gemini";
             };
-          };
+          });
         });
     };
 }
